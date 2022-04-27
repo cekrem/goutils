@@ -1,38 +1,44 @@
 package main
 
 import (
+    "context"
     "fmt"
     "time"
 
     "github.com/cekrem/goutils/utils"
 )
 
-func main(){
-    done := make(chan interface{})
-    res := utils.FanInChannelFunc(done, func() <- chan interface{} {
+func main() {
+    ctx := context.Background()
+    res := utils.FanInChannelFunc(ctx, func() <-chan interface{} {
         stream := make(chan interface{})
-        go func () {
+        go func() {
             defer close(stream)
             time.Sleep(1 * time.Second)
             stream <- "foo"
         }()
         return stream
-    }, func() <- chan interface{} {
+    }, func() <-chan interface{} {
         stream := make(chan interface{})
-        go func () {
+        go func() {
             defer close(stream)
             time.Sleep(1 * time.Second)
-            stream <- "boo"
+            stream <- "bar"
         }()
         return stream
     })
 
-    fmt.Println(<-res)
+    for entry := range res {
+        fmt.Println(entry)
+    }
 
-    res = utils.FanInFunc(done, func() interface{}{
-        return "foo"
+    ctx, cancel := context.WithCancel(ctx)
+    cancel()
+
+    res = utils.FanInFunc(ctx, func() interface{} {
+        time.Sleep(100)
+        return "this should never return: canceled!"
     })
 
     fmt.Println(<-res)
-
 }
